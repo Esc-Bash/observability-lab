@@ -1,0 +1,94 @@
+# A tiny webhook: prints every alert notification it receives (JSON) to its log.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: alert-receiver-code
+  namespace: monitoring
+data:
+  receiver.py: |
+    import json
+    from http.server import BaseHTTPRequestHandler, HTTPServer
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_POST(self):
+            body = self.rfile.read(int(self.headers.get("Content-Length") or 0))
+            try:
+                data = json.loads(body)
+                for alert in data.get("alerts", []):
+                    name = alert.get("labels", {}).get("alertname", "?")
+                    print(f"ALERT {alert.get('status', '?').upper()} {name}: {json.dumps(alert)}", flush=True)
+                print("NOTIFICATION " + json.dumps(data), flush=True)
+            except ValueError:
+                print("RAW " + body.decode(errors="replace"), flush=True)
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"ok\n")
+
+        def do_GET(self):
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(b"alert-receiver is running\n")
+
+        def log_message(self, *args):
+            pass
+
+    print("alert-receiver listening on :8080", flush=True)
+    HTTPServer(("0.0.0.0", 8080), Handler).serve_forever()
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: alert-receiver
+  namespace: monitoring
+  labels:
+    app: alert-receiver
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: alert-receiver
+  template:
+    metadata:
+      labels:
+        app: alert-receiver
+    spec:
+      containers:
+        - name: alert-receiver
+          image: python:3.12.11-slim
+          command: ["python", "-u", "/app/receiver.py"]
+          ports:
+            - name: http
+              containerPort: 8080
+          readinessProbe:
+            httpGet:
+              path: /
+              port: 8080
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 10m
+              memory: 24Mi
+            limits:
+              memory: 64Mi
+          volumeMounts:
+            - name: code
+              mountPath: /app
+      volumes:
+        - name: code
+          configMap:
+            name: alert-receiver-code
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: alert-receiver
+  namespace: monitoring
+  labels:
+    app: alert-receiver
+spec:
+  selector:
+    app: alert-receiver
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080

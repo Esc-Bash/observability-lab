@@ -1,0 +1,13 @@
+# Pins the OpenTelemetry packages for every pip install in this image (PIP_CONSTRAINT in the
+# Dockerfile). With these versions the HTTP server metric is http.server.duration (milliseconds),
+# which Prometheus shows as http_server_duration_milliseconds_* with the label http_status_code.
+opentelemetry-api==1.33.1
+opentelemetry-sdk==1.33.1
+opentelemetry-proto==1.33.1
+opentelemetry-exporter-otlp==1.33.1
+opentelemetry-exporter-otlp-proto-common==1.33.1
+opentelemetry-exporter-otlp-proto-grpc==1.33.1
+opentelemetry-exporter-otlp-proto-http==1.33.1
+opentelemetry-distro==0.54b1
+opentelemetry-instrumentation==0.54b1
+opentelemetry-semantic-conventions==0.54b1

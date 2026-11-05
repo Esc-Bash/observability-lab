@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment
+  namespace: shop
+  labels:
+    app: payment
+spec:
+  replicas: 1
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      app: payment
+  template:
+    metadata:
+      labels:
+        app: payment
+    spec:
+      terminationGracePeriodSeconds: 5
+      containers:
+        - name: payment
+          image: ghcr.io/esc-bash/shop-payment:v1
+          imagePullPolicy: IfNotPresent
+          ports:
+            - name: http
+              containerPort: 8001
+          env:
+            - name: PAYMENT_ERROR_RATE
+              value: "0"
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 8001
+            periodSeconds: 5
+          resources:
+            requests:
+              cpu: 20m
+              memory: 48Mi
+            limits:
+              memory: 256Mi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment
+  namespace: shop
+  labels:
+    app: payment
+spec:
+  selector:
+    app: payment
+  ports:
+    - name: http
+      port: 8001
+      targetPort: 8001
